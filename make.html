@@ -28,8 +28,14 @@
                 <h2 class="section-title">Data Diri</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-1">Foto Profil (3x4)</label>
-                        <input type="file" id="photoInput" accept="image/*" class="w-full border p-2 rounded">
+                        <label class="block text-sm font-medium mb-2">Foto Profil (3x4)</label>
+    
+                        <div class="mb-3">
+                            <img id="photoPreview" src="" alt="Foto Profil" class="hidden w-24 h-32 object-cover rounded border border-gray-300 shadow-sm">
+                            <p id="noPhotoText" class="text-xs text-gray-400 italic mt-1">Belum ada foto tersimpan.</p>
+                        </div>
+
+                        <input type="file" id="photoInput" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                         <input type="hidden" id="photoBase64"> 
                     </div>
                     <div>
@@ -219,6 +225,11 @@
 
                     // Simpan hasil kompresi ke hidden input
                     document.getElementById('photoBase64').value = dataUrl;
+
+                    const previewImg = document.getElementById('photoPreview');
+                    previewImg.src = dataUrl;
+                    previewImg.classList.remove('hidden');
+                    document.getElementById('noPhotoText').classList.add('hidden');
                     
                     // (Opsional) Tampilkan preview jika mau, tapi tidak wajib
                     console.log("Foto berhasil dikompresi.");
@@ -226,6 +237,7 @@
             }
             reader.readAsDataURL(file);
         });
+
         // 5. LOGIC DINAMIS
         window.addExperience = (data = {}) => {
             const container = document.getElementById('experienceList');
@@ -311,6 +323,13 @@
 
                 document.getElementById('summary').value = data.summary || '';
                 document.getElementById('photoBase64').value = data.photo || '';
+
+                if (data.photo) {
+                    const img = document.getElementById('photoPreview');
+                    img.src = data.photo;
+                    img.classList.remove('hidden'); // Tampilkan gambar
+                    document.getElementById('noPhotoText').classList.add('hidden'); // Sembunyikan teks "Belum ada foto"
+                }
 
                 if(data.experience) data.experience.forEach(exp => addExperience(exp));
                 else addExperience(); 
@@ -399,5 +418,4 @@
         });
     </script>
 </body>
-
 </html>
