@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview & Share CV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+    <nav class="bg-white shadow p-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-slate-800">CV Overview</h1>
+            <a href="make.html" class="text-blue-600 font-semibold hover:underline">
+                <i class="fas fa-edit mr-1"></i> Kembali Edit
+            </a>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto w-full p-6 flex-1 flex flex-col md:flex-row gap-6">
+        
+        <div class="w-full md:w-1/3 space-y-6">
+            
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-lg font-bold mb-4 text-slate-800">Link Publik Anda</h2>
+                <p class="text-sm text-gray-500 mb-2">Bagikan link ini ke HRD atau LinkedIn:</p>
+                
+                <div class="flex items-center gap-2 border p-2 rounded bg-gray-50 mb-4">
+                    <input type="text" id="shareUrl" class="w-full bg-transparent text-sm text-gray-600 outline-none" readonly>
+                    <button onclick="copyLink()" class="text-blue-600 hover:text-blue-800 font-bold text-sm" title="Copy">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+
+                <a id="openBtn" href="#" target="_blank" class="block text-center w-full bg-slate-800 text-white py-2 rounded hover:bg-slate-900 transition">
+                    Buka di Tab Baru <i class="fas fa-external-link-alt ml-1"></i>
+                </a>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 class="font-bold text-blue-800 text-sm mb-2">💡 Tips Membagikan</h3>
+                <p class="text-xs text-blue-700 leading-relaxed">
+                    Link di samping sudah otomatis menampilkan nama Anda. Saat dikirim via WhatsApp, foto profil Anda akan muncul sebagai preview (thumbnail).
+                </p>
+            </div>
+
+        </div>
+
+        <div class="w-full md:w-2/3">
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden h-full flex flex-col">
+                <div class="bg-gray-200 p-2 text-center text-xs text-gray-500 border-b">
+                    Preview Tampilan Mobile/Desktop
+                </div>
+                <div class="relative flex-1 bg-gray-100 min-h-[500px]">
+                    <iframe id="previewFrame" src="" class="w-full h-full absolute inset-0 border-0"></iframe>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Ambil ID (Slug) dari URL Overview
+        const params = new URLSearchParams(window.location.search);
+        const slug = params.get('id');
+
+        if (!slug) {
+            alert("ID CV tidak ditemukan!");
+            window.location.href = "make.html";
+        }
+
+        // Konstruksi URL Publik
+        // Pastikan path-nya sesuai repository GitHub Pages Anda
+        const finalUrl = `https://denzel143.github.io/resume/view.html?id=${slug}`;
+
+        // Set Values
+        document.getElementById('shareUrl').value = finalUrl;
+        document.getElementById('previewFrame').src = `view.html?id=${slug}`; // Pakai relative path untuk preview iframe
+        document.getElementById('openBtn').href = finalUrl;
+
+        // Fungsi Copy
+        function copyLink() {
+            const copyText = document.getElementById("shareUrl");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // Untuk Mobile
+            navigator.clipboard.writeText(copyText.value).then(() => {
+                alert("Link berhasil disalin!");
+            });
+        }
+    </script>
+</body>
+</html>

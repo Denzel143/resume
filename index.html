@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Maker - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen flex items-center justify-center">
+
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">CV Maker Login</h1>
+        
+        <div id="auth-forms">
+            <input type="email" id="email" placeholder="Email" class="w-full p-3 mb-3 border rounded">
+            <input type="password" id="password" placeholder="Password" class="w-full p-3 mb-4 border rounded">
+            
+            <button id="btnLogin" class="w-full bg-blue-500 text-white p-3 rounded hover:bg-blue-600 mb-2">Login</button>
+            <button id="btnSignup" class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600">Sign Up (Buat Akun Baru)</button>
+            
+            <div class="mt-4 text-center">
+                <button id="btnGoogle" class="text-sm text-gray-500 hover:text-blue-500">Masuk dengan Google</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 1. Import Firebase SDK langsung di sini
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        // Database belum dipakai di login, tapi kita siapkan importnya biar konsisten
+        import { getDatabase } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+        // 2. Konfigurasi Firebase (Dari file config Anda)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBf7cQ_Bt6gM2l5KOy2goXnm-jDKRE45f8",
+            authDomain: "resume-ceb60.firebaseapp.com",
+            databaseURL: "https://resume-ceb60-default-rtdb.firebaseio.com",
+            projectId: "resume-ceb60",
+            storageBucket: "resume-ceb60.firebasestorage.app",
+            messagingSenderId: "861546140569",
+            appId: "1:861546140569:web:2c182feacfff08f5c07908",
+            measurementId: "G-1DDJCR9NV3"
+        };
+
+        // 3. Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app); // Disiapkan saja
+
+        // ==========================================
+        // LOGIKA APLIKASI (Dari index.html lama)
+        // ==========================================
+
+        // Cek jika user sudah login
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Redirect ke halaman make.html jika sudah login
+                window.location.href = "make.html";
+            }
+        });
+
+        // Fungsi Sign Up
+        document.getElementById('btnSignup').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            
+            if (!email || !pass) {
+                alert("Email dan Password wajib diisi!");
+                return;
+            }
+
+            try {
+                await createUserWithEmailAndPassword(auth, email, pass);
+                alert("Akun berhasil dibuat! Mengalihkan...");
+                // Tidak perlu redirect manual, onAuthStateChanged akan menangani
+            } catch (error) {
+                let msg = error.message;
+                if(error.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar!";
+                if(error.code === 'auth/weak-password') msg = "Password terlalu lemah (min 6 karakter).";
+                alert("Error: " + msg);
+            }
+        });
+
+        // Fungsi Login
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+
+            if (!email || !pass) {
+                alert("Email dan Password wajib diisi!");
+                return;
+            }
+
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                // Redirect ditangani onAuthStateChanged
+            } catch (error) {
+                let msg = error.message;
+                if(error.code === 'auth/wrong-password') msg = "Password salah!";
+                if(error.code === 'auth/user-not-found') msg = "User tidak ditemukan.";
+                alert("Login gagal: " + msg);
+            }
+        });
+
+        // Fungsi Google Login
+        document.getElementById('btnGoogle').addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                // Redirect ditangani onAuthStateChanged
+            } catch (error) {
+                alert("Google Login gagal: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
