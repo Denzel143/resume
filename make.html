@@ -119,7 +119,6 @@
     </div>
 
     <script type="module">
-        // 1. IMPORT DAN CONFIG FIREBASE
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
@@ -140,15 +139,69 @@
         const db = getDatabase(app);
 
         let currentUser = null;
+        let savedStateJSON = ""; // Variabel untuk menyimpan state terakhir dari Database
 
-        // 2. LOGIC FORMAT NO HP OTOMATIS
-        const phoneInput = document.getElementById('whatsapp');
-        phoneInput.addEventListener('input', function (e) {
-            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,4})(\d{0,4})/);
-            e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
-        });
+        // --- FUNGSI BARU: Ambil Data Saat Ini dari Form ---
+        // Fungsi ini digunakan untuk membandingkan data RAM vs Database
+        function getCurrentFormData() {
+            const fullName = document.getElementById('fullName').value;
+            const urlSlug = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            const country = document.getElementById('countryCode').value;
+            const rawPhone = document.getElementById('whatsapp').value.replace(/-/g, '');
+            const finalPhone = country + rawPhone;
 
-        // 3. LOGIC AUTH & LOAD DATA
+            const formData = {
+                fullName: fullName,
+                location: document.getElementById('location').value,
+                whatsapp: finalPhone,
+                email: currentUser ? currentUser.email : "",
+                photo: document.getElementById('photoBase64').value,
+                summary: document.getElementById('summary').value,
+                slug: urlSlug,
+                experience: [],
+                education: [],
+                hardSkills: [],
+                softSkills: [],
+                additional: []
+            };
+
+            document.querySelectorAll('#experienceList > div').forEach(div => {
+                formData.experience.push({
+                    title: div.querySelector('.exp-title').value,
+                    period: div.querySelector('.exp-period').value,
+                    desc: div.querySelector('.exp-desc').value
+                });
+            });
+
+            document.querySelectorAll('#educationList > div').forEach(div => {
+                formData.education.push({
+                    school: div.querySelector('.edu-school').value,
+                    degree: div.querySelector('.edu-degree').value,
+                    year: div.querySelector('.edu-year').value,
+                    gpa: div.querySelector('.edu-gpa').value
+                });
+            });
+
+            document.querySelectorAll('#hardSkillsList .skill-input').forEach(i => formData.hardSkills.push(i.value));
+            document.querySelectorAll('#softSkillsList .skill-input').forEach(i => formData.softSkills.push(i.value));
+            
+            document.querySelectorAll('#additionalList > div').forEach(div => {
+                formData.additional.push({
+                    title: div.querySelector('.add-title').value,
+                    desc: div.querySelector('.add-desc').value
+                });
+            });
+
+            return formData;
+        }
+
+        // --- FUNGSI BARU: Cek Perubahan ---
+        function checkUnsavedChanges() {
+            const currentDataJSON = JSON.stringify(getCurrentFormData());
+            return currentDataJSON !== savedStateJSON;
+        }
+
+        // LOGIC AUTH & LOAD DATA
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "index.html";
@@ -159,104 +212,53 @@
             }
         });
 
+        // UPDATE: Logic Logout dengan Confirm
         document.getElementById('btnLogout').addEventListener('click', () => {
+            if (checkUnsavedChanges()) {
+                const confirmExit = confirm("Ada perubahan data yang belum disimpan. Yakin ingin keluar tanpa menyimpan?");
+                if (!confirmExit) return; // Batal keluar
+            }
             signOut(auth).then(() => window.location.href = "index.html");
         });
 
-        // EVENT LISTENER: TOMBOL LIHAT LINK SAYA (Redirect ke Overview)
+        // UPDATE: Tombol Lihat Link dengan Confirm
         document.getElementById('btnSeeLink').addEventListener('click', () => {
             const fullName = document.getElementById('fullName').value;
             if (!fullName) {
                 alert("Mohon isi Nama Lengkap terlebih dahulu.");
                 return;
             }
+            
+            if (checkUnsavedChanges()) {
+                const confirmExit = confirm("Data Anda saat ini berbeda dengan yang tersimpan. Yakin ingin meninggalkan halaman ini tanpa menyimpan?");
+                if (!confirmExit) return;
+            }
+
             const urlSlug = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
             window.location.href = `overview.html?id=${urlSlug}`;
         });
 
-        // 4. LOGIC GAMBAR DENGAN CROPPER (Update Overlay)
-        let cropper; // Variabel global untuk instance Cropper
-        const modal = document.getElementById('cropModal');
-        const imageElement = document.getElementById('imageToCrop');
-
-        // Saat user memilih file
-        document.getElementById('photoInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            if (!file.type.match('image.*')) {
-                alert("Mohon pilih file gambar (JPG/PNG)");
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                // 1. Reset input value agar user bisa pilih file yang sama jika cancel
-                e.target.value = ''; 
-
-                // 2. Tampilkan Modal
-                imageElement.src = evt.target.result;
-                modal.classList.remove('hidden');
-
-                // 3. Hapus instance lama jika ada, lalu buat baru
-                if (cropper) { cropper.destroy(); }
-                
-                cropper = new Cropper(imageElement, {
-                    aspectRatio: 3 / 4,    // Paksa rasio 3:4
-                    viewMode: 1,           // Crop box tidak boleh keluar dari gambar
-                    dragMode: 'move',      // Bisa geser gambar
-                    autoCropArea: 1,       // Crop area full saat mulai
-                    restore: false,
-                    guides: true,
-                    center: true,
-                    highlight: false,
-                    cropBoxMovable: true,
-                    cropBoxResizable: true,
-                    toggleDragModeOnDblclick: false,
-                });
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // Tombol CANCEL
-        document.getElementById('btnCancelCrop').addEventListener('click', () => {
-            modal.classList.add('hidden');
-            if (cropper) {
-                cropper.destroy();
-                cropper = null;
+        // UPDATE: Deteksi Tombol Back Browser / Tutup Tab
+        window.addEventListener('beforeunload', (e) => {
+            if (checkUnsavedChanges()) {
+                // Browser modern mewajibkan ini untuk menampilkan dialog confirm bawaan browser
+                e.preventDefault();
+                e.returnValue = ''; 
             }
         });
 
-        // Tombol SAVE
-        document.getElementById('btnSaveCrop').addEventListener('click', () => {
-            if (!cropper) return;
-
-            // 1. Ambil hasil crop & Resize ke lebar 300px
-            const canvas = cropper.getCroppedCanvas({
-                width: 300,
-                height: 400,
-                imageSmoothingEnabled: true,
-                imageSmoothingQuality: 'high',
-            });
-
-            // 2. Kompres ke Base64 (JPEG quality 0.7)
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-            // 3. Simpan ke Input Hidden & Preview
-            document.getElementById('photoBase64').value = dataUrl;
-            
-            const previewImg = document.getElementById('photoPreview');
-            previewImg.src = dataUrl;
-            previewImg.classList.remove('hidden');
-            document.getElementById('noPhotoText').classList.add('hidden');
-
-            // 4. Tutup Modal
-            modal.classList.add('hidden');
-            cropper.destroy();
-            cropper = null;
+        const phoneInput = document.getElementById('whatsapp');
+        phoneInput.addEventListener('input', function (e) {
+            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,4})(\d{0,4})/);
+            e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
         });
 
-        // 5. LOGIC DINAMIS
+        document.getElementById('photoInput').addEventListener('change', function() {
+            // Logic ini akan di-override oleh logic Cropper di bawah, 
+            // tapi tetap dibiarkan untuk fallback
+        });
+
+        // LOGIC DINAMIS
         window.addExperience = (data = {}) => {
             const container = document.getElementById('experienceList');
             const div = document.createElement('div');
@@ -345,8 +347,8 @@
                 if (data.photo) {
                     const img = document.getElementById('photoPreview');
                     img.src = data.photo;
-                    img.classList.remove('hidden'); // Tampilkan gambar
-                    document.getElementById('noPhotoText').classList.add('hidden'); // Sembunyikan teks "Belum ada foto"
+                    img.classList.remove('hidden'); 
+                    document.getElementById('noPhotoText').classList.add('hidden'); 
                 }
 
                 if(data.experience) data.experience.forEach(exp => addExperience(exp));
@@ -367,93 +369,124 @@
                 addSkill('hardSkillsList');
                 addSkill('softSkillsList');
             }
+
+            // UPDATE: Simpan Snapshot Data Awal setelah loading selesai
+            // Ini dianggap "Sama dengan Firebase"
+            savedStateJSON = JSON.stringify(getCurrentFormData());
         }
 
-        // 7. SAVE DATA (Diupdate: Redirect ke Overview)
         document.getElementById('cvForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const fullName = document.getElementById('fullName').value;
-            const urlSlug = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-            const country = document.getElementById('countryCode').value;
-            const rawPhone = document.getElementById('whatsapp').value.replace(/-/g, ''); 
-            const finalPhone = country + rawPhone; 
-
-            const formData = {
-                fullName: fullName,
-                location: document.getElementById('location').value,
-                whatsapp: finalPhone, 
-                email: currentUser.email,
-                photo: document.getElementById('photoBase64').value,
-                summary: document.getElementById('summary').value,
-                slug: urlSlug,
-                experience: [],
-                education: [],
-                hardSkills: [],
-                softSkills: [],
-                additional: []
-            };
-
-            document.querySelectorAll('#experienceList > div').forEach(div => {
-                formData.experience.push({
-                    title: div.querySelector('.exp-title').value,
-                    period: div.querySelector('.exp-period').value,
-                    desc: div.querySelector('.exp-desc').value
-                });
-            });
-
-            document.querySelectorAll('#educationList > div').forEach(div => {
-                formData.education.push({
-                    school: div.querySelector('.edu-school').value,
-                    degree: div.querySelector('.edu-degree').value,
-                    year: div.querySelector('.edu-year').value,
-                    gpa: div.querySelector('.edu-gpa').value
-                });
-            });
-
-            document.querySelectorAll('#hardSkillsList .skill-input').forEach(i => formData.hardSkills.push(i.value));
-            document.querySelectorAll('#softSkillsList .skill-input').forEach(i => formData.softSkills.push(i.value));
-            
-            document.querySelectorAll('#additionalList > div').forEach(div => {
-                formData.additional.push({
-                    title: div.querySelector('.add-title').value,
-                    desc: div.querySelector('.add-desc').value
-                });
-            });
+            // Ambil data menggunakan fungsi yang sama
+            const formData = getCurrentFormData();
 
             try {
                 await set(ref(db, 'users/' + currentUser.uid), formData);
-                await set(ref(db, 'slugs/' + urlSlug), currentUser.uid);
+                await set(ref(db, 'slugs/' + formData.slug), currentUser.uid);
 
-                // PERUBAHAN DISINI: REDIRECT KE OVERVIEW
+                // UPDATE: Karena berhasil disimpan, update Snapshot terbaru
+                savedStateJSON = JSON.stringify(formData);
+
                 alert('CV Berhasil disimpan! Mengalihkan ke halaman link...');
-                window.location.href = `overview.html?id=${urlSlug}`;
+                window.location.href = `overview.html?id=${formData.slug}`;
                 
             } catch (error) {
                 alert("Gagal menyimpan: " + error.message);
             }
         });
+
+        // 4. LOGIC GAMBAR DENGAN CROPPER
+        let cropper; 
+        const modal = document.getElementById('cropModal');
+        const imageElement = document.getElementById('imageToCrop');
+
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.type.match('image.*')) {
+                alert("Mohon pilih file gambar (JPG/PNG)");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                e.target.value = ''; 
+
+                imageElement.src = evt.target.result;
+                modal.classList.remove('hidden');
+
+                if (cropper) { cropper.destroy(); }
+                
+                cropper = new Cropper(imageElement, {
+                    aspectRatio: 3 / 4,    
+                    viewMode: 1,           
+                    dragMode: 'move',      
+                    autoCropArea: 1,       
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: false,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    toggleDragModeOnDblclick: false,
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('btnCancelCrop').addEventListener('click', () => {
+            modal.classList.add('hidden');
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+        });
+
+        document.getElementById('btnSaveCrop').addEventListener('click', () => {
+            if (!cropper) return;
+
+            const canvas = cropper.getCroppedCanvas({
+                width: 300,
+                height: 400,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            document.getElementById('photoBase64').value = dataUrl;
+            
+            const previewImg = document.getElementById('photoPreview');
+            previewImg.src = dataUrl;
+            previewImg.classList.remove('hidden');
+            document.getElementById('noPhotoText').classList.add('hidden');
+
+            modal.classList.add('hidden');
+            cropper.destroy();
+            cropper = null;
+        });
     </script>
 
-<div id="cropModal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-70 flex items-center justify-center backdrop-blur-sm">
-    <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Sesuaikan Foto (3:4)</h3>
-        
-        <div class="relative w-full h-80 bg-gray-100 overflow-hidden rounded mb-4">
-            <img id="imageToCrop" src="" class="block max-w-full">
-        </div>
+    <div id="cropModal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-70 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Sesuaikan Foto (3:4)</h3>
+            
+            <div class="relative w-full h-80 bg-gray-100 overflow-hidden rounded mb-4">
+                <img id="imageToCrop" src="" class="block max-w-full">
+            </div>
 
-        <div class="flex justify-end gap-3 mt-auto">
-            <button type="button" id="btnCancelCrop" class="px-4 py-2 rounded text-gray-600 hover:bg-gray-100 font-semibold border">
-                Batal
-            </button>
-            <button type="button" id="btnSaveCrop" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-bold shadow">
-                <i class="fas fa-check mr-1"></i> Simpan Foto
-            </button>
+            <div class="flex justify-end gap-3 mt-auto">
+                <button type="button" id="btnCancelCrop" class="px-4 py-2 rounded text-gray-600 hover:bg-gray-100 font-semibold border">
+                    Batal
+                </button>
+                <button type="button" id="btnSaveCrop" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-bold shadow">
+                    <i class="fas fa-check mr-1"></i> Simpan Foto
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
 </body>
 </html>
