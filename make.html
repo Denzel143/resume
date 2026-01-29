@@ -8,6 +8,8 @@
     <style>
         .section-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; color: #2563eb; }
     </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
 
@@ -172,70 +174,86 @@
             window.location.href = `overview.html?id=${urlSlug}`;
         });
 
-        // 4. LOGIC GAMBAR DENGAN KOMPRESI (Update Terbaru)
-        document.getElementById('photoInput').addEventListener('change', function(event) {
-            const file = event.target.files[0];
+        // 4. LOGIC GAMBAR DENGAN CROPPER (Update Overlay)
+        let cropper; // Variabel global untuk instance Cropper
+        const modal = document.getElementById('cropModal');
+        const imageElement = document.getElementById('imageToCrop');
+
+        // Saat user memilih file
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
             if (!file) return;
 
-            // Validasi tipe file
             if (!file.type.match('image.*')) {
                 alert("Mohon pilih file gambar (JPG/PNG)");
                 return;
             }
 
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.src = e.target.result;
+            reader.onload = function(evt) {
+                // 1. Reset input value agar user bisa pilih file yang sama jika cancel
+                e.target.value = ''; 
+
+                // 2. Tampilkan Modal
+                imageElement.src = evt.target.result;
+                modal.classList.remove('hidden');
+
+                // 3. Hapus instance lama jika ada, lalu buat baru
+                if (cropper) { cropper.destroy(); }
                 
-                img.onload = function() {
-                    // Siapkan Canvas untuk resize
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-
-                    // Tentukan ukuran maksimal (300px sudah sangat cukup untuk CV web)
-                    const MAX_WIDTH = 300;
-                    const MAX_HEIGHT = 400; // Rasio 3:4
-                    
-                    let width = img.width;
-                    let height = img.height;
-
-                    // Logika Resize Pertahankan Rasio
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-
-                    // Gambar ulang foto ke canvas dengan ukuran baru
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // Konversi ke Base64 dengan kompresi JPEG (Kualitas 0.7 atau 70%)
-                    // Ini akan mengubah foto 5MB menjadi sekitar 30KB - 50KB
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-                    // Simpan hasil kompresi ke hidden input
-                    document.getElementById('photoBase64').value = dataUrl;
-
-                    const previewImg = document.getElementById('photoPreview');
-                    previewImg.src = dataUrl;
-                    previewImg.classList.remove('hidden');
-                    document.getElementById('noPhotoText').classList.add('hidden');
-                    
-                    // (Opsional) Tampilkan preview jika mau, tapi tidak wajib
-                    console.log("Foto berhasil dikompresi.");
-                }
-            }
+                cropper = new Cropper(imageElement, {
+                    aspectRatio: 3 / 4,    // Paksa rasio 3:4
+                    viewMode: 1,           // Crop box tidak boleh keluar dari gambar
+                    dragMode: 'move',      // Bisa geser gambar
+                    autoCropArea: 1,       // Crop area full saat mulai
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: false,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    toggleDragModeOnDblclick: false,
+                });
+            };
             reader.readAsDataURL(file);
+        });
+
+        // Tombol CANCEL
+        document.getElementById('btnCancelCrop').addEventListener('click', () => {
+            modal.classList.add('hidden');
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+        });
+
+        // Tombol SAVE
+        document.getElementById('btnSaveCrop').addEventListener('click', () => {
+            if (!cropper) return;
+
+            // 1. Ambil hasil crop & Resize ke lebar 300px
+            const canvas = cropper.getCroppedCanvas({
+                width: 300,
+                height: 400,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            // 2. Kompres ke Base64 (JPEG quality 0.7)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            // 3. Simpan ke Input Hidden & Preview
+            document.getElementById('photoBase64').value = dataUrl;
+            
+            const previewImg = document.getElementById('photoPreview');
+            previewImg.src = dataUrl;
+            previewImg.classList.remove('hidden');
+            document.getElementById('noPhotoText').classList.add('hidden');
+
+            // 4. Tutup Modal
+            modal.classList.add('hidden');
+            cropper.destroy();
+            cropper = null;
         });
 
         // 5. LOGIC DINAMIS
@@ -417,5 +435,25 @@
             }
         });
     </script>
+
+<div id="cropModal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-70 flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Sesuaikan Foto (3:4)</h3>
+        
+        <div class="relative w-full h-80 bg-gray-100 overflow-hidden rounded mb-4">
+            <img id="imageToCrop" src="" class="block max-w-full">
+        </div>
+
+        <div class="flex justify-end gap-3 mt-auto">
+            <button type="button" id="btnCancelCrop" class="px-4 py-2 rounded text-gray-600 hover:bg-gray-100 font-semibold border">
+                Batal
+            </button>
+            <button type="button" id="btnSaveCrop" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-bold shadow">
+                <i class="fas fa-check mr-1"></i> Simpan Foto
+            </button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
